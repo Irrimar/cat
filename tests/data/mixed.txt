@@ -1,0 +1,7 @@
+trailing spaces   
+  leading spaces
+	tab and	more
+
+
+after blanks
+no newline at end	tab

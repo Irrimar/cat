@@ -1,0 +1,4 @@
+name	age	city
+alice	30	paris
+		leading tabs
+trailing tab	
