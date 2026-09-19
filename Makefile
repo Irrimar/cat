@@ -1,32 +1,47 @@
 # Папка для объектников и бинарного файла
-BUILD=build
+BUILD = build
 
-# папка с исходноком
-SRC=src
+# папка с исходниками
+SRC = src
 
 # имя бинарного файла
-TARGET=main
+TARGET = cat
 
 # компилятор
-GCC=gcc
+CC = gcc
 
 # флаги компилятора
-GCCFLAGS=-std=c11 -Wall -Werror -Wextra
+CFLAGS = -std=c11 -Wall -Werror -Wextra -MMD -MP
+
+SRCS = $(wildcard $(SRC)/*.c)
+OBJS = $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
+DEPS = $(OBJS:.o=.d)
 
 # папка с файлами для тестирования
-TEST_DATA=tests/data
+TEST_DATA = tests/data
 
-# тестовые файлы
-T1=blank_lines.txt
-T2=cyrillic.txt
-T3=empty.txt
-T4=mixed.txt
-T5=no_trailing_newline.txt
-T6=only_newlines.txt
-T7=simple.txt
-T8=single_line.txt
-T9=tabs.txt
+.PHONY: all run test clean
 
-all:
-	$(GCC) $(GCCFLAGS) $(SRC)/$(TARGET).c -o $(BUILD)/$(TARGET)
-	@./$(BUILD)/$(TARGET) $(TEST_DATA)/$(T8)
+all: $(BUILD)/$(TARGET)
+
+# линковка
+$(BUILD)/$(TARGET): $(OBJS)
+	$(CC) $^ -o $@
+
+# компиляция
+$(BUILD)/%.o: $(SRC)/%.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD):
+	mkdir -p $@
+
+run: all
+	./$(BUILD)/$(TARGET) $(TEST_DATA)/single_line.txt # $(TEST_DATA)/simple.txt
+
+test: all
+	bash tests/run.sh
+
+clean:
+	rm -rf $(BUILD)
+
+-include $(DEPS)

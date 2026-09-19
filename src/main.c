@@ -1,28 +1,15 @@
 #include <stdio.h>
-#include <string.h>
-#include <errno.h>
+#include <string.h>  // Используются для получения ошибок 
+#include <errno.h>   // как в cat
 
-// parse_args
+#include "cat.h"
 
 int main(int argc, char *argv[]) {
-    for (int  i = 0; i < argc; i++) {
-        printf("argv[%d] = %s\n", i, argv[i]);
-    }
+    // for (int  i = 0; i < argc; i++) {
+    //     printf("argc = %d\nargv[%d] = %s\n", argc, i, argv[i]);
+    // }
 
-    char *file_path = "tests/data/single_line.txt";
-    printf("\nфайл [ %s ]\n\n", file_path);
-
-    FILE *file_read = fopen(file_path, "r");
-    if (file_read == NULL) {
-        fprintf(stderr, "файл => [ %s ]: %s\n", file_path, strerror(errno));
-        return 1;
-    }
-    printf("Файл [ %s ] успешно открыт\n\n", file_path);
-
-    int ch;
-    while((ch = fgetc(file_read))!= EOF) {
-        putchar(ch);
-    }
+    // parse_args
 
     /*for (int i = 1; i < argc; i++) {
        if (argv[i][0] == '-' && argv[i][1] != '\0') {
@@ -32,6 +19,24 @@ int main(int argc, char *argv[]) {
             // имя файла (или "-" — stdin)
         }*/
 
-    fclose(file_read);
-    return 0;
+       
+        int flag_err = 0;
+        for (int i = 1; i < argc; i++) {
+            char *path_to_file = argv[i];
+            FILE *file_to_read = fopen(path_to_file, "r");
+
+            // printf("Файл [ %s ] \n\n", path_to_file);
+
+            if (file_to_read == NULL) {
+                fprintf(stderr, "cat: %s: %s\n", path_to_file, strerror(errno));
+                flag_err = 1;
+            } else {
+                // printf("Файл [ %s ] успешно открыт\n\n", path_to_file);
+
+                PrintFile(file_to_read);
+                fclose(file_to_read);
+            }
+        }
+
+    return flag_err;
 }
