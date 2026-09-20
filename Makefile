@@ -11,16 +11,36 @@ TARGET = cat
 CC = gcc
 
 # флаги компилятора
-CFLAGS = -std=c11 -Wall -Werror -Wextra -MMD -MP
+CFLAGS = -g -std=c11 -Wall -Werror -Wextra -MMD -MP
 
 SRCS = $(wildcard $(SRC)/*.c)
 OBJS = $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
-DEPS = $(OBJS:.o=.d)
+DEPS = $(wildcard $(BUILD)/*.d)
 
 # папка с файлами для тестирования
 TEST_DATA = tests/data
 
-.PHONY: all run test clean
+TESTS     = test
+TEST_SRCS = $(wildcard $(TESTS)/test_*.c)
+TEST_BINS = $(TEST_SRCS:$(TESTS)/%.c=$(SUILD)/%)
+TEST_OBJS = $(TEST_BINS:=.o)
+LIB_OBJS  = $(filter-out $(BUILD)/main.o,$(OBJS))
+
+# Проверка clang-format
+CL = clang-format
+CLN = -n
+CLI = -i
+
+# Проверка cppcheck
+CPP = cppcheck
+FLCPP = --enable=all --std=c11 --suppress=missingIncludeSystem --enable=warning,style
+
+# Проверка valgrind
+VL = valgrind
+VLFL = --leak-check=full
+
+
+.PHONY: all run test clean rebuild cln cli cpp val
 
 all: $(BUILD)/$(TARGET)
 
@@ -43,5 +63,19 @@ test: all
 
 clean:
 	rm -rf $(BUILD)
+
+rebuild: clean all
+
+cln:
+	$(CL) $(CLN) ./src/*.c ./src/*.h ./tests/*.c ./tests/*.h
+
+cli:
+	$(CL) $(CLI) ./src/*.c ./src/*.h ./tests/*.c ./tests/*.h
+
+cpp:
+	$(CPP) $(FLCPP) ./src/*.c ./src/*.h ./tests/*.c ./tests/*.h
+
+val:
+	$(VL) $(VLFL) ./$(BUILD)/$(TARGET) $(TEST_DATA)/simple.txt
 
 -include $(DEPS)

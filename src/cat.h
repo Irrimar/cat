@@ -1,6 +1,6 @@
 #ifndef CAT_H
 #define CAT_H
 
-void PrintFile(FILE *file_to_read);
+void FileProcessing(FILE *file_to_read, FILE *out);
 
 #endif

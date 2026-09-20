@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
        
         int flag_err = 0;
         for (int i = 1; i < argc; i++) {
-            char *path_to_file = argv[i];
+            const char *path_to_file = argv[i];
             FILE *file_to_read = fopen(path_to_file, "r");
 
             // printf("Файл [ %s ] \n\n", path_to_file);
@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
             } else {
                 // printf("Файл [ %s ] успешно открыт\n\n", path_to_file);
 
-                PrintFile(file_to_read);
+                FileProcessing(file_to_read, stdout);
                 fclose(file_to_read);
             }
         }
