@@ -11,7 +11,7 @@ static const char *mu_current_test = "";
 #define mu_assert(message, test)                                                            \
     do {                                                                                    \
         if (!(test)) {                                                                      \
-            printf("FAIL %s (%s:%d): %s\n", mu_current_test, __FILE__, __LINE__, message);   \
+            printf("FAIL %s (%s:%d): %s\n", mu_current_test, __FILE__, __LINE__, message);  \
             return 1;                                                                       \
         }                                                                                   \
     } while (0)

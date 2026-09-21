@@ -1,6 +1,7 @@
 build/
 cat.code-workspace
 .vscode
+notes.txt
 
 # Prerequisites
 *.d

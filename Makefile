@@ -20,9 +20,9 @@ DEPS = $(wildcard $(BUILD)/*.d)
 # папка с файлами для тестирования
 TEST_DATA = tests/data
 
-TESTS     = test
+TESTS     = tests
 TEST_SRCS = $(wildcard $(TESTS)/test_*.c)
-TEST_BINS = $(TEST_SRCS:$(TESTS)/%.c=$(SUILD)/%)
+TEST_BINS = $(TEST_SRCS:$(TESTS)/%.c=$(BUILD)/%)
 TEST_OBJS = $(TEST_BINS:=.o)
 LIB_OBJS  = $(filter-out $(BUILD)/main.o,$(OBJS))
 
@@ -43,7 +43,7 @@ VLFL = --leak-check=full
 .PHONY: all run test clean rebuild cln cli cpp val
 
 all: $(BUILD)/$(TARGET)
-
+# Основная программа
 # линковка
 $(BUILD)/$(TARGET): $(OBJS)
 	$(CC) $^ -o $@
@@ -55,10 +55,21 @@ $(BUILD)/%.o: $(SRC)/%.c | $(BUILD)
 $(BUILD):
 	mkdir -p $@
 
+# Тесты
+# юнит-тесты: компиляция и линковка с объектниками проекта (без main.o)
+$(BUILD)/test_%.o: $(TESTS)/test_%.c | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/test_%: $(BUILD)/test_%.o $(LIB_OBJS)
+	$(CC) $^ -o $@
+
+.SECONDARY: $(TEST_OBJS)
+
 run: all
 	./$(BUILD)/$(TARGET) $(TEST_DATA)/single_line.txt # $(TEST_DATA)/simple.txt
 
-test: all
+test: all $(TEST_BINS)
+	@for t in $(TEST_BINS); do ./$$t || exit 1; done
 	bash tests/run.sh
 
 clean:
