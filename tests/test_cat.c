@@ -29,7 +29,7 @@ static int test_copies_input(void) {
     fclose(tmp);
     fclose(in);
 
-    mu_assert_streq("abc", buf);
+    mu_assert_streq(input, buf);
     return 0;
 }
 

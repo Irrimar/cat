@@ -2,9 +2,9 @@
 
 #include "cat.h"
 
-void FileProcessing(FILE *file_to_read, FILE *out) {
+void FileProcessing(FILE *in, FILE *out) {
     int ch;
-        while((ch = fgetc(file_to_read))!= EOF) {
+        while((ch = fgetc(in))!= EOF) {
             fputc(ch, out);
         }
 }

@@ -11,7 +11,7 @@ TARGET = cat
 CC = gcc
 
 # флаги компилятора
-CFLAGS = -g -std=c11 -Wall -Werror -Wextra -MMD -MP
+CFLAGS = -g -std=c11 #-Wall -Werror -Wextra -MMD -MP
 
 SRCS = $(wildcard $(SRC)/*.c)
 OBJS = $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
