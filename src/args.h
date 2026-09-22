@@ -3,6 +3,8 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 struct Options {
     bool number_lines;     // -n
@@ -16,9 +18,10 @@ struct Options {
     char **files;
 };
 
-struct Options parse_args(int argc, char *argv[]);
+int ParseArgs(int argc, char *argv[], struct Options *opts);
+void OptionsFree(struct Options *opts);
 
-FILE *open_input(const char *path_to_file);
-void close_input(FILE *in);
+FILE *OpenInput(const char *path_to_file);
+void CloseInput(FILE *in);
 
 #endif

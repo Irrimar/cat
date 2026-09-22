@@ -11,7 +11,7 @@ TARGET = cat
 CC = gcc
 
 # флаги компилятора
-CFLAGS = -g -std=c11 #-Wall -Werror -Wextra -MMD -MP
+CFLAGS = -g -std=c11 -Wall -Werror -Wextra -MMD -MP
 
 SRCS = $(wildcard $(SRC)/*.c)
 OBJS = $(SRCS:$(SRC)/%.c=$(BUILD)/%.o)
@@ -66,7 +66,9 @@ $(BUILD)/test_%: $(BUILD)/test_%.o $(LIB_OBJS)
 .SECONDARY: $(TEST_OBJS)
 
 run: all
-	./$(BUILD)/$(TARGET) $(TEST_DATA)/single_line.txt $(TEST_DATA)/simple.txt
+	./$(BUILD)/$(TARGET) - -
+	# $(TEST_DATA)/single_line.txt -
+	# $(TEST_DATA)/simple.txt
 
 test: all $(TEST_BINS)
 	@for t in $(TEST_BINS); do ./$$t || exit 1; done
