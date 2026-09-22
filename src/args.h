@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 
-
 struct Options {
     bool number_lines;     // -n
     bool number_nonblank;  // -b

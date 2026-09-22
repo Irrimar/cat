@@ -1,10 +1,10 @@
-#include <stdio.h>
-#include <string.h>  // Используются для получения ошибок 
-#include <errno.h>   // как в cat
+#include <errno.h>  // как в cat
 #include <stdbool.h>
+#include <stdio.h>
+#include <string.h>  // Используются для получения ошибок
 
-#include "cat.h"
 #include "args.h"
+#include "cat.h"
 
 int main(int argc, char *argv[]) {
     struct Options opts = parse_args(argc, argv);
@@ -19,7 +19,6 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "cat: %s: %s\n", path_to_file, strerror(errno));
             flag_err = true;
         } else {
-
             FileProcessing(in, stdout);
             close_input(in);
         }

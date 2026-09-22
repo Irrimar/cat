@@ -1,7 +1,7 @@
 #define _GNU_SOURCE
 
-#include "minunit.h"
 #include "../src/cat.h"
+#include "minunit.h"
 
 static int test_copies_input(void) {
     char input[] = "abc";
