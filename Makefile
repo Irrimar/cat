@@ -66,7 +66,7 @@ $(BUILD)/test_%: $(BUILD)/test_%.o $(LIB_OBJS)
 .SECONDARY: $(TEST_OBJS)
 
 run: all
-	./$(BUILD)/$(TARGET) $(TEST_DATA)/single_line.txt # $(TEST_DATA)/simple.txt
+	./$(BUILD)/$(TARGET) $(TEST_DATA)/single_line.txt $(TEST_DATA)/simple.txt
 
 test: all $(TEST_BINS)
 	@for t in $(TEST_BINS); do ./$$t || exit 1; done

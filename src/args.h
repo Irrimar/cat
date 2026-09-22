@@ -2,6 +2,7 @@
 #define ARGS_H
 
 #include <stdbool.h>
+#include <stdio.h>
 
 struct Options {
     bool number_lines;     // -n

@@ -11,8 +11,8 @@ int main(int argc, char *argv[]) {
 
     bool flag_err = false;
     for (int i = 1; i < argc; i++) {  // потом переделать
-        // const char *path_to_file = argv[i];
-        const char *path_to_file = "-";
+        const char *path_to_file = argv[i];
+        // const char *path_to_file = "-";
         FILE *in = open_input(path_to_file);
 
         if (in == NULL) {
