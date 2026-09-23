@@ -93,7 +93,9 @@ check "$DATA/empty.txt" "$DATA/simple.txt" "$DATA/empty.txt"
 # --- stdin ---
 check_stdin "$DATA/simple.txt"                                  # без аргументов
 check_stdin "$DATA/simple.txt" -                                # явный "-"
+check_stdin "$DATA/simple.txt" - -                              # явный "-"
 check_stdin "$DATA/simple.txt" "$DATA/tabs.txt" - "$DATA/tabs.txt"
+check_stdin "$DATA/simple.txt" - "$DATA/tabs.txt" "$DATA/tabs.txt" -
 
 # --- ошибки ---
 check "$DATA/nope.txt"                                          # нет файла → rc=1
