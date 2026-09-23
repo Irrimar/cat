@@ -29,6 +29,19 @@ static const char *mu_current_test = "";
         }                                                     \
     } while (0)
 
+#define mu_assert_inteq(expected, actual)                     \
+    do {                                                      \
+        size_t e_ = (expected), a_ = (actual);                   \
+        if (e_ != a_) {                                       \
+            printf(                                           \
+                "FAIL %s (%s:%d): integers differ\n"          \
+                "    expected: %zu\n"                          \
+                "    actual:   %zu\n",                         \
+                mu_current_test, __FILE__, __LINE__, e_, a_); \
+            return 1;                                         \
+        }                                                     \
+    } while (0)
+
 #define mu_run_test(test)                   \
     do {                                    \
         mu_current_test = #test;            \
