@@ -12,8 +12,8 @@ int main(int argc, char *argv[]) {
 
     for (int i = 0; i < opts.file_count; i++) {
         const char *path_to_file = opts.files[i];
-        FILE *in = OpenInput(path_to_file);
 
+        FILE *in = OpenInput(path_to_file);
         if (in == NULL) {
             fprintf(stderr, "cat: %s: %s\n", path_to_file, strerror(errno));
             flag_err = true;

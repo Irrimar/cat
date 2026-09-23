@@ -66,13 +66,18 @@ $(BUILD)/test_%: $(BUILD)/test_%.o $(LIB_OBJS)
 .SECONDARY: $(TEST_OBJS)
 
 run: all
-	./$(BUILD)/$(TARGET) - -
-	# $(TEST_DATA)/single_line.txt -
-	# $(TEST_DATA)/simple.txt
+	./$(BUILD)/$(TARGET) -n $(TEST_DATA)/single_line.txt 
+	#- $(TEST_DATA)/simple.txt -
 
+# Прогоняются все наборы тестов, даже если какой-то упал; общий итог в конце.
 test: all $(TEST_BINS)
-	@for t in $(TEST_BINS); do ./$$t || exit 1; done
-	bash tests/run.sh
+	@rc=0; \
+	for t in $(TEST_BINS); do ./$$t || rc=1; done; \
+	echo; \
+	bash tests/run.sh || rc=1; \
+	echo; \
+	if [ $$rc -eq 0 ]; then echo "ALL TESTS PASSED"; else echo "SOME TESTS FAILED"; fi; \
+	exit $$rc
 
 clean:
 	rm -rf $(BUILD)

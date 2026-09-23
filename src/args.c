@@ -13,10 +13,10 @@ int ParseArgs(int argc, char *argv[], struct Options *opts) {
             // флаг: argv[i][1] — буква ('n', 'b', 's'...)
             // или strcmp(argv[i], "--help") == 0
         } else if (argv[i][0] == '-' && argv[i][1] == '\0') {
-            opts->files[i - 1] = "-";
+            opts->files[opts->file_count] = "-";
             opts->file_count++;
         } else {
-            opts->files[i - 1] = argv[i];
+            opts->files[opts->file_count] = argv[i];
             opts->file_count++;
         }
     }
