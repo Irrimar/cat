@@ -6,11 +6,11 @@
 
 int main(int argc, char *argv[]) {
     struct Options opts = {0};
-    bool flag_err = ParseArgs(argc, argv, &opts);
+    int flag_err = ParseArgs(argc, argv, &opts);
 
     // обработать ошибку
 
-    for (int i = 0; i < opts.file_count; i++) {
+    for (int i = 0; i < opts.file_count; i++) {  // обработатать ошибку ParseArgs
         const char *path_to_file = opts.files[i];
 
         FILE *in = OpenInput(path_to_file);
