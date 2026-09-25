@@ -37,7 +37,9 @@ run_pair() {
     "$SYS_CAT" "$@" <"$stdin_file" >"$TMP/exp.out" 2>"$TMP/exp.err"; echo $? >"$TMP/exp.rc"
     "$MY_CAT"  "$@" <"$stdin_file" >"$TMP/act.out" 2>"$TMP/act.err"; echo $? >"$TMP/act.rc"
     # Имя программы в stderr у всех разное (/bin/cat:, ./build/cat:) — приводим к "cat:"
-    sed -i 's|^[^:]*cat: |cat: |' "$TMP/exp.err" "$TMP/act.err"
+    # Второе правило — для подсказки "Try '/bin/cat --help' for more information."
+    sed -i -e 's|^[^:]*cat: |cat: |' \
+           -e "s|Try '[^']*cat --help'|Try 'cat --help'|" "$TMP/exp.err" "$TMP/act.err"
 }
 
 # report NAME — сравнивает результаты последнего run_pair и печатает diff при провале
@@ -102,6 +104,12 @@ check "$DATA/nope.txt"                                          # нет фай�
 check "$DATA/nope.txt" "$DATA/simple.txt"                       # ошибка, но остальные файлы выводятся
 check "$DATA/simple.txt" "$DATA/nope.txt" "$DATA/simple.txt"
 check "$DATA"                                                   # директория → "Is a directory"
+
+# --- неизвестные флаги ---
+check -z                                                        # короткий неизвестный флаг
+check -z "$DATA/simple.txt"                                     # файл выводиться не должен
+check "$DATA/simple.txt" -z                                     # флаг после файла — тоже ошибка
+check --number-all                                              # длинный неизвестный флаг (GNU его тоже не знает)
 
 # --- флаги ---
 for flag in $FLAGS; do

@@ -369,7 +369,7 @@ static int test_close_input_closes_file(void) {
 
 // 5. CloseInput сбрасывает признак EOF у stdin, иначе второй "-" ничего не прочитает
 static int test_close_input_clears_eof(void) {
-    FILE *in = freopen("tests/data/single_line.txt", "r", stdin);
+    const FILE *in = freopen("tests/data/single_line.txt", "r", stdin);
 
     mu_assert("Can't redirect stdin", in != NULL);
 
@@ -389,7 +389,7 @@ static int test_close_input_clears_eof(void) {
 
 // 4. CloseInput не закрывает stdin: после неё поток читается дальше
 static int test_close_input_keeps_stdin(void) {
-    FILE *in = freopen("tests/data/single_line.txt", "r", stdin);
+    const FILE *in = freopen("tests/data/single_line.txt", "r", stdin);
 
     mu_assert("Can't redirect stdin", in != NULL);
 
@@ -405,7 +405,7 @@ static int test_close_input_keeps_stdin(void) {
 
 // 3. OpenInput на несуществующем файле возвращает NULL
 static int test_open_input_missing(void) {
-    FILE *in = OpenInput("tests/data/nope.txt");
+    const FILE *in = OpenInput("tests/data/nope.txt");
 
     mu_assert("Missing file must give NULL", in == NULL);  // Проверка что вернулся NULL
 
@@ -432,7 +432,7 @@ static int test_open_input_file(void) {
 
 // 1. OpenInput("-") возвращает именно stdin, а не открывает файл с таким именем
 static int test_open_input_dash(void) {
-    FILE *in = OpenInput("-");
+    const FILE *in = OpenInput("-");
 
     mu_assert("OpenInput(\"-\") must return stdin", in == stdin);  // Проверка что вернулся stdin
 
@@ -1142,7 +1142,6 @@ static int test_files1_and_options(void) {
     return 0;
 }
 
-
 // Тесты для опций смешанные
 
 // 9. неизвестный флаг в конце склейки
@@ -1296,7 +1295,7 @@ static int test_all4_options(void) {
     
     char *argv[] = {"file_name", "-t", NULL};
     int argc = sizeof(argv) / sizeof(argv[0]) - 1;  // NULL в argc не входит
-    
+
     bool expected_number_lines = false;     // -n
     bool expected_number_nonblank = false;  // -b
     bool expected_squeeze_blank = false;    // -s
@@ -1314,7 +1313,7 @@ static int test_all4_options(void) {
     mu_assert_inteq(expected_show_ends, opts.show_ends);              // -E отработан верно
     mu_assert_inteq(expected_show_tabs, opts.show_tabs);              // -T отработан верно
     mu_assert_inteq(expected_help, opts.help);                        // --help оработан верно
-    
+
     OptionsFree(&opts);
     return 0;
 }
@@ -1344,7 +1343,6 @@ static int test_all3_options(void) {
     mu_assert_inteq(expected_show_tabs, opts.show_tabs);              // -T отработан верно
     mu_assert_inteq(expected_help, opts.help);                        // --help оработан верно
 
-
     OptionsFree(&opts);
     return 0;
 }
@@ -1373,7 +1371,6 @@ static int test_all2_options(void) {
     mu_assert_inteq(expected_show_ends, opts.show_ends);              // -E отработан верно
     mu_assert_inteq(expected_show_tabs, opts.show_tabs);              // -T отработан верно
     mu_assert_inteq(expected_help, opts.help);                        // --help оработан верно
-
 
     OptionsFree(&opts);
     return 0;
