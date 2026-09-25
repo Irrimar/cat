@@ -1,5 +1,9 @@
 #include "args.h"
+
 #include "my_errors.h"
+
+// Вторая строка сообщения об ошибке, как у cat
+#define HELP_HINT "Try 'cat --help' for more information.\n"
 
 // Парсин опций
 int ParseArgs(int argc, char *argv[], struct Options *opts) {
@@ -33,6 +37,9 @@ int ParseFlags(const char *arg, struct Options *opts) {  // написать т�
 
     if (strcmp(arg, "--help") == 0) {  // длинный флаг проверяется целиком, один раз
         opts->help = true;
+    } else if (arg[1] == '-') {  // остальные длинные флаги не поддерживаются
+        flag_err = UNKNOWN_FLAG_ERROR;
+        fprintf(stderr, "cat: unrecognized option '%s'\n" HELP_HINT, arg);
     } else {
         for (int i = 1; arg[i] != '\0' && flag_err == SUCCESS; i++) {  // склейка вида -nE
             if (arg[i] == 'n')
@@ -45,8 +52,10 @@ int ParseFlags(const char *arg, struct Options *opts) {  // написать т�
                 opts->show_ends = true;
             else if (arg[i] == 'T')
                 opts->show_tabs = true;
-            else
-                flag_err = UNKNOWN_FLAG_ERROR;  // Написать вывод на экран генерацию ошибки как в cat
+            else {
+                flag_err = UNKNOWN_FLAG_ERROR;
+                fprintf(stderr, "cat: invalid option -- '%c'\n" HELP_HINT, arg[i]);
+            }
         }
     }
 

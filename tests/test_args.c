@@ -1,5 +1,13 @@
+#define _POSIX_C_SOURCE 200809L  // нужен для dup/dup2
+
+#include <unistd.h>
+
 #include "../src/args.h"
+#include "../src/my_errors.h"
 #include "minunit.h"
+
+// Вторая строка сообщения об ошибке, ожидаемая от ParseFlags
+#define HINT "Try 'cat --help' for more information.\n"
 
 static int test_null_options(void);
 static int test_dash_options(void);
@@ -38,6 +46,15 @@ static int test_close_input_closes_file(void);
 static int test_options_free_clears_pointer(void);
 static int test_options_free_twice(void);
 static int test_options_free_zeroed(void);
+
+static int test_flags_unknown_short(void);
+static int test_flags_unknown_long(void);
+static int test_flags_single_dash_word(void);
+static int test_flags_double_dash(void);
+static int test_flags_valid_silent(void);
+static int test_flags_help_silent(void);
+static int test_flags_stops_after_error(void);
+static int test_flags_keeps_parsed_before_error(void);
 
 static int test_all1_options(void);
 static int test_all2_options(void);
@@ -88,6 +105,15 @@ int main(void) {
     mu_run_test(test_options_free_twice);
     mu_run_test(test_options_free_zeroed);
 
+    mu_run_test(test_flags_unknown_short);
+    mu_run_test(test_flags_unknown_long);
+    mu_run_test(test_flags_single_dash_word);
+    mu_run_test(test_flags_double_dash);
+    mu_run_test(test_flags_valid_silent);
+    mu_run_test(test_flags_help_silent);
+    mu_run_test(test_flags_stops_after_error);
+    mu_run_test(test_flags_keeps_parsed_before_error);
+
     mu_run_test(test_all1_options);
     mu_run_test(test_all2_options);
     mu_run_test(test_all3_options);
@@ -100,6 +126,160 @@ int main(void) {
 
     mu_report();
     return mu_tests_failed != 0;
+}
+
+// Тесты для ParseFlags
+//
+// Установку флагов проверяют тесты ParseArgs выше, здесь — вывод сообщений
+// об ошибках: stderr перенаправляется во временный файл и читается обратно.
+
+// Перенаправляет stderr во временный файл, вызывает ParseFlags и возвращает её код.
+// Текст, попавший в stderr, кладёт в buf. stderr восстанавливается.
+static int ParseFlagsStderr(const char *arg, struct Options *opts, char *buf, size_t size) {
+    const char *tmp_path = "build/stderr.tmp";
+    int res = -1;
+
+    buf[0] = '\0';
+
+    int saved = dup(STDERR_FILENO);  // запомнить настоящий stderr
+    if (saved != -1 && freopen(tmp_path, "w", stderr) != NULL) {
+        res = ParseFlags(arg, opts);
+        fflush(stderr);  // после freopen поток буферизован, без сброса файл пуст
+
+        FILE *tmp = fopen(tmp_path, "r");
+        if (tmp != NULL) {
+            size_t len = fread(buf, 1, size - 1, tmp);
+            buf[len] = '\0';
+            fclose(tmp);
+        }
+
+        dup2(saved, STDERR_FILENO);  // вернуть stderr на место
+        clearerr(stderr);
+    }
+
+    if (saved != -1) close(saved);
+    remove(tmp_path);
+
+    return res;
+}
+
+// 8. Флаги, разобранные до ошибки, остаются взведёнными
+static int test_flags_keeps_parsed_before_error(void) {
+    struct Options opts = {0};
+    char buf[256];
+
+    int res = ParseFlagsStderr("-nz", &opts, buf, sizeof(buf));
+    int res_expected = UNKNOWN_FLAG_ERROR;
+
+    mu_assert_inteq(res_expected, res);                     // Проверка кода возврата ParseFlags
+    mu_assert_streq("cat: invalid option -- 'z'\n" HINT, buf);  // Проверка сообщения про 'z'
+    mu_assert("-n before the error must stay set", opts.number_lines);  // Проверка что -n взведён
+
+    return 0;
+}
+
+// 7. Разбор прекращается на первом неизвестном символе: одно сообщение, остальное не читается
+static int test_flags_stops_after_error(void) {
+    struct Options opts = {0};
+    char buf[256];
+
+    int res = ParseFlagsStderr("-zn", &opts, buf, sizeof(buf));
+    int res_expected = UNKNOWN_FLAG_ERROR;
+
+    mu_assert_inteq(res_expected, res);                     // Проверка кода возврата ParseFlags
+    mu_assert_streq("cat: invalid option -- 'z'\n" HINT, buf);  // Проверка что сообщение ровно одно
+    mu_assert("-n after the error must not be set",
+              !opts.number_lines);  // Проверка что разбор прерван
+
+    return 0;
+}
+
+// 6. --help не ошибка и ничего не печатает
+static int test_flags_help_silent(void) {
+    struct Options opts = {0};
+    char buf[256];
+
+    int res = ParseFlagsStderr("--help", &opts, buf, sizeof(buf));
+    int res_expected = SUCCESS;
+
+    mu_assert_inteq(res_expected, res);     // Проверка кода возврата ParseFlags
+    mu_assert_streq("", buf);               // Проверка что stderr пуст
+    mu_assert("--help must be set", opts.help);  // Проверка что --help взведён
+
+    return 0;
+}
+
+// 5. Успешный разбор ничего не печатает
+static int test_flags_valid_silent(void) {
+    struct Options opts = {0};
+    char buf[256];
+
+    int res = ParseFlagsStderr("-nE", &opts, buf, sizeof(buf));
+    int res_expected = SUCCESS;
+
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseFlags
+    mu_assert_streq("", buf);            // Проверка что stderr пуст
+    mu_assert("-n must be set", opts.number_lines);  // Проверка что -n взведён
+    mu_assert("-E must be set", opts.show_ends);     // Проверка что -E взведён
+
+    return 0;
+}
+
+// 4. "--" не поддерживается (см. «Границы» в плане) и разбирается как длинный флаг
+static int test_flags_double_dash(void) {
+    struct Options opts = {0};
+    char buf[256];
+
+    int res = ParseFlagsStderr("--", &opts, buf, sizeof(buf));
+    int res_expected = UNKNOWN_FLAG_ERROR;
+
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseFlags
+    mu_assert_streq("cat: unrecognized option '--'\n" HINT, buf);  // Проверка сообщения
+
+    return 0;
+}
+
+// 3. "-help" — одиночный дефис, значит посимвольный разбор, а не длинный флаг
+static int test_flags_single_dash_word(void) {
+    struct Options opts = {0};
+    char buf[256];
+
+    int res = ParseFlagsStderr("-help", &opts, buf, sizeof(buf));
+    int res_expected = UNKNOWN_FLAG_ERROR;
+
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseFlags
+    mu_assert_streq("cat: invalid option -- 'h'\n" HINT, buf);  // Проверка сообщения про символ
+    mu_assert("--help must not be set", !opts.help);  // Проверка что это не спутано с --help
+
+    return 0;
+}
+
+// 2. Неизвестный длинный флаг: в сообщении вся строка, а не символ
+static int test_flags_unknown_long(void) {
+    struct Options opts = {0};
+    char buf[256];
+
+    int res = ParseFlagsStderr("--number", &opts, buf, sizeof(buf));
+    int res_expected = UNKNOWN_FLAG_ERROR;
+
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseFlags
+    mu_assert_streq("cat: unrecognized option '--number'\n" HINT, buf);  // Проверка сообщения
+
+    return 0;
+}
+
+// 1. Неизвестный короткий флаг: в сообщении символ
+static int test_flags_unknown_short(void) {
+    struct Options opts = {0};
+    char buf[256];
+
+    int res = ParseFlagsStderr("-z", &opts, buf, sizeof(buf));
+    int res_expected = UNKNOWN_FLAG_ERROR;
+
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseFlags
+    mu_assert_streq("cat: invalid option -- 'z'\n" HINT, buf);  // Проверка сообщения
+
+    return 0;
 }
 
 // Тесты для OptionsFree
