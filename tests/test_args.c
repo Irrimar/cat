@@ -9,6 +9,9 @@
 // Вторая строка сообщения об ошибке, ожидаемая от ParseFlags
 #define HINT "Try 'cat --help' for more information.\n"
 
+// Метка, которую PrintHelp не должна затирать
+#define MARK "<<<\n"
+
 static int test_null_options(void);
 static int test_dash_options(void);
 static int test_two_dash_options(void);
@@ -55,6 +58,13 @@ static int test_flags_valid_silent(void);
 static int test_flags_help_silent(void);
 static int test_flags_stops_after_error(void);
 static int test_flags_keeps_parsed_before_error(void);
+
+static int test_help_writes_to_stream(void);
+static int test_help_header(void);
+static int test_help_lists_all_flags(void);
+static int test_help_has_no_unimplemented_flags(void);
+static int test_help_ends_with_newline(void);
+static int test_help_is_repeatable(void);
 
 static int test_all1_options(void);
 static int test_all2_options(void);
@@ -114,6 +124,13 @@ int main(void) {
     mu_run_test(test_flags_stops_after_error);
     mu_run_test(test_flags_keeps_parsed_before_error);
 
+    mu_run_test(test_help_writes_to_stream);
+    mu_run_test(test_help_header);
+    mu_run_test(test_help_lists_all_flags);
+    mu_run_test(test_help_has_no_unimplemented_flags);
+    mu_run_test(test_help_ends_with_newline);
+    mu_run_test(test_help_is_repeatable);
+
     mu_run_test(test_all1_options);
     mu_run_test(test_all2_options);
     mu_run_test(test_all3_options);
@@ -171,7 +188,7 @@ static int test_flags_keeps_parsed_before_error(void) {
     int res = ParseFlagsStderr("-nz", &opts, buf, sizeof(buf));
     int res_expected = UNKNOWN_FLAG_ERROR;
 
-    mu_assert_inteq(res_expected, res);                     // Проверка кода возврата ParseFlags
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseFlags
     mu_assert_streq("cat: invalid option -- 'z'\n" HINT, buf);  // Проверка сообщения про 'z'
     mu_assert("-n before the error must stay set", opts.number_lines);  // Проверка что -n взведён
 
@@ -186,7 +203,7 @@ static int test_flags_stops_after_error(void) {
     int res = ParseFlagsStderr("-zn", &opts, buf, sizeof(buf));
     int res_expected = UNKNOWN_FLAG_ERROR;
 
-    mu_assert_inteq(res_expected, res);                     // Проверка кода возврата ParseFlags
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseFlags
     mu_assert_streq("cat: invalid option -- 'z'\n" HINT, buf);  // Проверка что сообщение ровно одно
     mu_assert("-n after the error must not be set",
               !opts.number_lines);  // Проверка что разбор прерван
@@ -194,16 +211,16 @@ static int test_flags_stops_after_error(void) {
     return 0;
 }
 
-// 6. --help не ошибка и ничего не печатает
+// 6. --help ничего не печатает в stderr и даёт HELP_REQUESTED
 static int test_flags_help_silent(void) {
     struct Options opts = {0};
     char buf[256];
 
     int res = ParseFlagsStderr("--help", &opts, buf, sizeof(buf));
-    int res_expected = SUCCESS;
+    int res_expected = HELP_REQUESTED;  // не ошибка, но разбор прекращается
 
-    mu_assert_inteq(res_expected, res);     // Проверка кода возврата ParseFlags
-    mu_assert_streq("", buf);               // Проверка что stderr пуст
+    mu_assert_inteq(res_expected, res);          // Проверка кода возврата ParseFlags
+    mu_assert_streq("", buf);                    // Проверка что stderr пуст
     mu_assert("--help must be set", opts.help);  // Проверка что --help взведён
 
     return 0;
@@ -217,8 +234,8 @@ static int test_flags_valid_silent(void) {
     int res = ParseFlagsStderr("-nE", &opts, buf, sizeof(buf));
     int res_expected = SUCCESS;
 
-    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseFlags
-    mu_assert_streq("", buf);            // Проверка что stderr пуст
+    mu_assert_inteq(res_expected, res);              // Проверка кода возврата ParseFlags
+    mu_assert_streq("", buf);                        // Проверка что stderr пуст
     mu_assert("-n must be set", opts.number_lines);  // Проверка что -n взведён
     mu_assert("-E must be set", opts.show_ends);     // Проверка что -E взведён
 
@@ -308,7 +325,7 @@ static int test_options_free_twice(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                      // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert("Can't allocate memory", opts.files != NULL);  // Проверка что память выделена
 
     OptionsFree(&opts);
@@ -333,7 +350,7 @@ static int test_options_free_clears_pointer(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                      // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert("Can't allocate memory", opts.files != NULL);  // Проверка что память выделена
 
     OptionsFree(&opts);
@@ -397,7 +414,7 @@ static int test_close_input_keeps_stdin(void) {
     CloseInput(stdin);
     int second = fgetc(stdin);
 
-    mu_assert_inteq('h', first);   // Проверка что прочитан первый символ файла
+    mu_assert_inteq('h', first);  // Проверка что прочитан первый символ файла
     mu_assert_inteq('e', second);  // Проверка что поток жив и чтение продолжилось
 
     return 0;
@@ -458,7 +475,7 @@ static int test_files18_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 2;  // ParseArgs упала при разборе
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -492,7 +509,7 @@ static int test_files17_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -531,7 +548,7 @@ static int test_files16_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 2;  // ParseArgs упала при разборе
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -562,7 +579,7 @@ static int test_files15_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 2;  // ParseArgs упала при разборе
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -596,7 +613,7 @@ static int test_files14_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -638,7 +655,7 @@ static int test_files13_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -677,7 +694,7 @@ static int test_files12_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 2;  // ParseArgs упала при разборе
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -708,7 +725,7 @@ static int test_files11_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 2;  // ParseArgs упала при разборе
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -722,7 +739,7 @@ static int test_files11_and_options(void) {
     return 0;
 }
 
-// 10. --help вместе с файлом
+// 10. --help вместе с файлом: разбор прекращается, до файла дело не доходит
 static int test_files10_and_options(void) {
     struct Options opts = {0};
 
@@ -736,13 +753,12 @@ static int test_files10_and_options(void) {
     bool expected_show_tabs = false;        // -T
     bool expected_help = true;              // --help
 
-    char *expected_argv[] = {"a.txt"};
-    int expected_file_count = sizeof(expected_argv) / sizeof(expected_argv[0]);
+    int expected_file_count = 0;  // разбор прекращён на --help, файл не добавлен
 
     int res = ParseArgs(argc, argv, &opts);
-    int res_expected = 0;
+    int res_expected = HELP_REQUESTED;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -751,14 +767,7 @@ static int test_files10_and_options(void) {
     mu_assert_inteq(expected_help, opts.help);                        // --help отработан верно
 
     mu_assert("Can't allocate memory", opts.files != NULL);  // Проверка что память выделена
-    mu_assert("Сount out of range",
-              opts.file_count > 0 &&
-                  opts.file_count <= argc);  // Проверка что количество файлов в правильном диапазоне
-    mu_assert_inteq(expected_file_count,
-                    opts.file_count);  // Проверка что количество файлов считает правильно
-    for (int i = 0; i < expected_file_count; i++) {
-        mu_assert_streq(expected_argv[i], opts.files[i]);  // Проверка что имена файлов совпадают
-    }
+    mu_assert_inteq(expected_file_count, opts.file_count);  // Проверка что файлы не разбирались
 
     OptionsFree(&opts);
     return 0;
@@ -784,7 +793,7 @@ static int test_files9_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -826,7 +835,7 @@ static int test_files8_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -868,7 +877,7 @@ static int test_files7_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -910,7 +919,7 @@ static int test_files6_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -952,7 +961,7 @@ static int test_files5_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -994,7 +1003,7 @@ static int test_files4_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -1036,7 +1045,7 @@ static int test_files3_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -1078,7 +1087,7 @@ static int test_files2_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -1120,7 +1129,7 @@ static int test_files1_and_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка кода возврата ParseArgs
+    mu_assert_inteq(res_expected, res);  // Проверка кода возврата ParseArgs
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -1157,18 +1166,18 @@ static int test_all9_options(void) {
     bool expected_show_ends = true;        // -E
     bool expected_show_tabs = false;       // -T
     bool expected_help = false;            // --help
-    
+
     int res = ParseArgs(argc, argv, &opts);
-    int res_expected = 2;                  // ParseArgs упала при разборе
-    
-    mu_assert_inteq(res_expected, res);                               // Проверка что ParseArgs не упал
+    int res_expected = 2;  // ParseArgs упала при разборе
+
+    mu_assert_inteq(res_expected, res);  // Проверка что ParseArgs не упал
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
     mu_assert_inteq(expected_show_ends, opts.show_ends);              // -E отработан верно
     mu_assert_inteq(expected_show_tabs, opts.show_tabs);              // -T отработан верно
     mu_assert_inteq(expected_help, opts.help);                        // --help оработан верно
-    
+
     OptionsFree(&opts);
     return 0;
 }
@@ -1186,18 +1195,18 @@ static int test_all8_options(void) {
     bool expected_show_ends = false;        // -E
     bool expected_show_tabs = false;        // -T
     bool expected_help = false;             // --help
-    
+
     int res = ParseArgs(argc, argv, &opts);
-    int res_expected = 2;                  // ParseArgs упала при разборе
-    
-    mu_assert_inteq(res_expected, res);                               // Проверка что ParseArgs не упал
+    int res_expected = 2;  // ParseArgs упала при разборе
+
+    mu_assert_inteq(res_expected, res);  // Проверка что ParseArgs не упал
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
     mu_assert_inteq(expected_show_ends, opts.show_ends);              // -E отработан верно
     mu_assert_inteq(expected_show_tabs, opts.show_tabs);              // -T отработан верно
     mu_assert_inteq(expected_help, opts.help);                        // --help оработан верно
-    
+
     OptionsFree(&opts);
     return 0;
 }
@@ -1205,28 +1214,28 @@ static int test_all8_options(void) {
 // 7. неизвестный флаг первым, верный после него не читается
 static int test_all7_options(void) {
     struct Options opts = {0};
-    
+
     char *argv[] = {"file_name", "-t", "-n", NULL};
     int argc = sizeof(argv) / sizeof(argv[0]) - 1;  // NULL в argc не входит
-    
+
     bool expected_number_lines = false;     // -n
     bool expected_number_nonblank = false;  // -b
     bool expected_squeeze_blank = false;    // -s
     bool expected_show_ends = false;        // -E
     bool expected_show_tabs = false;        // -T
     bool expected_help = false;             // --help
-    
+
     int res = ParseArgs(argc, argv, &opts);
-    int res_expected = 2;                  // ParseArgs упала при разборе
-    
-    mu_assert_inteq(res_expected, res);                               // Проверка что ParseArgs не упал
+    int res_expected = 2;  // ParseArgs упала при разборе
+
+    mu_assert_inteq(res_expected, res);  // Проверка что ParseArgs не упал
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
     mu_assert_inteq(expected_show_ends, opts.show_ends);              // -E отработан верно
     mu_assert_inteq(expected_show_tabs, opts.show_tabs);              // -T отработан верно
     mu_assert_inteq(expected_help, opts.help);                        // --help оработан верно
-    
+
     OptionsFree(&opts);
     return 0;
 }
@@ -1234,28 +1243,28 @@ static int test_all7_options(void) {
 // 6. разбор прерывается на неизвестном флаге, остальное не читается
 static int test_all6_options(void) {
     struct Options opts = {0};
-    
+
     char *argv[] = {"file_name", "-n", "-t", "-n", NULL};
     int argc = sizeof(argv) / sizeof(argv[0]) - 1;  // NULL в argc не входит
-    
+
     bool expected_number_lines = true;      // -n
     bool expected_number_nonblank = false;  // -b
     bool expected_squeeze_blank = false;    // -s
     bool expected_show_ends = false;        // -E
     bool expected_show_tabs = false;        // -T
     bool expected_help = false;             // --help
-    
+
     int res = ParseArgs(argc, argv, &opts);
-    int res_expected = 2;                  // ParseArgs упала при разборе
-    
-    mu_assert_inteq(res_expected, res);                               // Проверка что ParseArgs не упал
+    int res_expected = 2;  // ParseArgs упала при разборе
+
+    mu_assert_inteq(res_expected, res);  // Проверка что ParseArgs не упал
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
     mu_assert_inteq(expected_show_ends, opts.show_ends);              // -E отработан верно
     mu_assert_inteq(expected_show_tabs, opts.show_tabs);              // -T отработан верно
     mu_assert_inteq(expected_help, opts.help);                        // --help оработан верно
-    
+
     OptionsFree(&opts);
     return 0;
 }
@@ -1263,28 +1272,28 @@ static int test_all6_options(void) {
 // 5. верный флаг, затем неизвестный
 static int test_all5_options(void) {
     struct Options opts = {0};
-    
+
     char *argv[] = {"file_name", "-n", "-t", NULL};
     int argc = sizeof(argv) / sizeof(argv[0]) - 1;  // NULL в argc не входит
-    
+
     bool expected_number_lines = true;      // -n
     bool expected_number_nonblank = false;  // -b
     bool expected_squeeze_blank = false;    // -s
     bool expected_show_ends = false;        // -E
     bool expected_show_tabs = false;        // -T
     bool expected_help = false;             // --help
-    
+
     int res = ParseArgs(argc, argv, &opts);
-    int res_expected = 2;                  // ParseArgs упала при разборе
-    
-    mu_assert_inteq(res_expected, res);                               // Проверка что ParseArgs не упал
+    int res_expected = 2;  // ParseArgs упала при разборе
+
+    mu_assert_inteq(res_expected, res);  // Проверка что ParseArgs не упал
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
     mu_assert_inteq(expected_show_ends, opts.show_ends);              // -E отработан верно
     mu_assert_inteq(expected_show_tabs, opts.show_tabs);              // -T отработан верно
     mu_assert_inteq(expected_help, opts.help);                        // --help оработан верно
-    
+
     OptionsFree(&opts);
     return 0;
 }
@@ -1292,7 +1301,7 @@ static int test_all5_options(void) {
 // 4. неизвестный флаг (-t вместо -T)
 static int test_all4_options(void) {
     struct Options opts = {0};
-    
+
     char *argv[] = {"file_name", "-t", NULL};
     int argc = sizeof(argv) / sizeof(argv[0]) - 1;  // NULL в argc не входит
 
@@ -1302,11 +1311,11 @@ static int test_all4_options(void) {
     bool expected_show_ends = false;        // -E
     bool expected_show_tabs = false;        // -T
     bool expected_help = false;             // --help
-    
+
     int res = ParseArgs(argc, argv, &opts);
-    int res_expected = 2;                  // ParseArgs упала при разборе
-    
-    mu_assert_inteq(res_expected, res);                               // Проверка что ParseArgs не упал
+    int res_expected = 2;  // ParseArgs упала при разборе
+
+    mu_assert_inteq(res_expected, res);  // Проверка что ParseArgs не упал
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -1335,7 +1344,7 @@ static int test_all3_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка что ParseArgs не упал
+    mu_assert_inteq(res_expected, res);  // Проверка что ParseArgs не упал
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -1364,7 +1373,7 @@ static int test_all2_options(void) {
     int res = ParseArgs(argc, argv, &opts);
     int res_expected = 0;
 
-    mu_assert_inteq(res_expected, res);                               // Проверка что ParseArgs не упал
+    mu_assert_inteq(res_expected, res);  // Проверка что ParseArgs не упал
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -1393,9 +1402,9 @@ static int test_all1_options(void) {
     bool expected_help = true;             // --help
 
     int res = ParseArgs(argc, argv, &opts);
-    int res_expected = 0;
+    int res_expected = HELP_REQUESTED;  // --help стоит последним, флаги уже разобраны
 
-    mu_assert_inteq(res_expected, res);                               // Проверка что ParseArgs не упал
+    mu_assert_inteq(res_expected, res);  // Проверка что ParseArgs не упал
     mu_assert_inteq(expected_number_lines, opts.number_lines);        // -n отработан верно
     mu_assert_inteq(expected_number_nonblank, opts.number_nonblank);  // -b отработан верно
     mu_assert_inteq(expected_squeeze_blank, opts.squeeze_blank);      // -s отработан верно
@@ -1595,5 +1604,120 @@ static int test_null_options(void) {
     }
 
     OptionsFree(&opts);
+    return 0;
+}
+
+// Тесты для PrintHelp
+//
+// PrintHelp принимает FILE *out, поэтому stdout подменять не нужно: справка
+// печатается в память через fmemopen и читается как обычная строка.
+// Точный текст намеренно не сверяется — он меняется при правке формулировок,
+// и тест ломался бы на каждой запятой. Проверяются свойства, которые обязаны
+// держаться: куда пишем, что перечислено и чего там быть не должно.
+
+// Печатает справку в buf. Возвращает false, если поток создать не удалось.
+static bool PrintHelpToBuf(char *buf, size_t size) {
+    buf[0] = '\0';
+
+    FILE *out = fmemopen(buf, size, "w");
+    if (out == NULL) return false;
+
+    PrintHelp(out);
+
+    return fclose(out) == 0;  // fclose сбрасывает буфер и дописывает '\0'
+}
+
+// 6. Повторный вызов печатает то же самое: у PrintHelp нет внутреннего состояния
+static int test_help_is_repeatable(void) {
+    char first[1024];
+    char second[1024];
+
+    mu_assert("fmemopen failed", PrintHelpToBuf(first, sizeof(first)));
+    mu_assert("fmemopen failed", PrintHelpToBuf(second, sizeof(second)));
+
+    mu_assert_streq(first, second);  // Проверка что текст не зависит от вызова
+
+    return 0;
+}
+
+// 5. Текст заканчивается переводом строки, иначе приглашение оболочки прилипнет к справке
+static int test_help_ends_with_newline(void) {
+    char buf[1024];
+
+    mu_assert("fmemopen failed", PrintHelpToBuf(buf, sizeof(buf)));
+
+    size_t len = strlen(buf);
+
+    mu_assert("help must not be empty", len > 0);  // Проверка что текст есть
+    mu_assert("help must end with a newline", buf[len - 1] == '\n');  // Проверка перевода строки
+
+    return 0;
+}
+
+// 4. Нереализованных флагов в справке нет (см. «Границы» в плане)
+static int test_help_has_no_unimplemented_flags(void) {
+    char buf[1024];
+
+    mu_assert("fmemopen failed", PrintHelpToBuf(buf, sizeof(buf)));
+
+    // Два пробела перед дефисом — так флаг выглядит в списке, обычное "-n"
+    // встречается и в тексте описаний ("overrides -n")
+    mu_assert("-A is not implemented", strstr(buf, "  -A") == NULL);  // Проверка что -A не обещан
+    mu_assert("-v is not implemented", strstr(buf, "  -v") == NULL);  // Проверка что -v не обещан
+    mu_assert("-e is not implemented", strstr(buf, "  -e") == NULL);  // Проверка что -e не обещан
+    mu_assert("-t is not implemented", strstr(buf, "  -t") == NULL);  // Проверка что -t не обещан
+    mu_assert("-u is not implemented", strstr(buf, "  -u") == NULL);  // Проверка что -u не обещан
+
+    return 0;
+}
+
+// 3. Перечислены все реализованные флаги: справка не должна отставать от кода
+static int test_help_lists_all_flags(void) {
+    char buf[1024];
+
+    mu_assert("fmemopen failed", PrintHelpToBuf(buf, sizeof(buf)));
+
+    mu_assert("-b missing in help", strstr(buf, "  -b") != NULL);  // Проверка что -b описан
+    mu_assert("-E missing in help", strstr(buf, "  -E") != NULL);  // Проверка что -E описан
+    mu_assert("-n missing in help", strstr(buf, "  -n") != NULL);  // Проверка что -n описан
+    mu_assert("-s missing in help", strstr(buf, "  -s") != NULL);  // Проверка что -s описан
+    mu_assert("-T missing in help", strstr(buf, "  -T") != NULL);  // Проверка что -T описан
+    mu_assert("--help missing in help", strstr(buf, "--help") != NULL);  // Проверка что --help описан
+
+    return 0;
+}
+
+// 2. Шапка: строка вызова и объяснение, что без файлов читается stdin
+static int test_help_header(void) {
+    char buf[1024];
+
+    mu_assert("fmemopen failed", PrintHelpToBuf(buf, sizeof(buf)));
+
+    mu_assert("help must start with a usage line",
+              strncmp(buf, "Usage: cat", 10) == 0);  // Проверка первой строки
+    mu_assert("help must explain reading from stdin",
+              strstr(buf, "standard input") != NULL);  // Проверка упоминания stdin
+
+    return 0;
+}
+
+// 1. Справка пишется в переданный поток с текущей позиции и ничего не затирает
+static int test_help_writes_to_stream(void) {
+    char buf[1024];
+    buf[0] = '\0';
+
+    FILE *out = fmemopen(buf, sizeof(buf), "w");
+    mu_assert("fmemopen failed", out != NULL);
+
+    fputs(MARK, out);  // в потоке уже что-то есть
+    PrintHelp(out);
+
+    mu_assert("fclose failed", fclose(out) == 0);
+
+    mu_assert("PrintHelp must not rewind or overwrite the stream",
+              strncmp(buf, MARK, strlen(MARK)) == 0);  // Проверка что метка уцелела
+    mu_assert("help must be written after it",
+              strstr(buf + strlen(MARK), "Usage: cat") != NULL);  // Проверка что справка следом
+
     return 0;
 }

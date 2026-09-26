@@ -19,7 +19,7 @@ export LC_ALL=C                        # сообщения об ошибках 
 
 # Флаги, которые уже реализованы. Дописывай сюда по мере реализации,
 # например: FLAGS="-n -b -s -E -T -nE -bs -nsT"
-FLAGS=""
+FLAGS="-n -b -s -E -T -nb -nE -nT -nET -ns -nsE -bs -bsET -sE -sT -ET"
 
 passed=0
 failed=0
@@ -104,6 +104,23 @@ check "$DATA/nope.txt"                                          # нет фай�
 check "$DATA/nope.txt" "$DATA/simple.txt"                       # ошибка, но остальные файлы выводятся
 check "$DATA/simple.txt" "$DATA/nope.txt" "$DATA/simple.txt"
 check "$DATA"                                                   # директория → "Is a directory"
+
+# Файл без прав на чтение. В git такой не положишь — права хранятся только для
+# бита x, поэтому создаём его на месте. Под root проверка бессмысленна: ему права
+# не мешают, и тест прошёл бы по ложной причине.
+if [[ $(id -u) -ne 0 ]]; then
+    NOPERM="$TMP/noperm.txt"
+    echo "secret" > "$NOPERM"
+    chmod 000 "$NOPERM"
+
+    check "$NOPERM"                                             # нет прав → "Permission denied"
+    check "$NOPERM" "$DATA/simple.txt"                           # ошибка, но остальные файлы выводятся
+    check -n "$NOPERM" "$DATA/simple.txt"                        # нумерация начинается с доступного файла
+
+    chmod 644 "$NOPERM"                                          # чтобы trap смог удалить папку
+else
+    echo "пропущено: тесты прав не работают под root"
+fi
 
 # --- неизвестные флаги ---
 check -z                                                        # короткий неизвестный флаг

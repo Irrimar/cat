@@ -37,12 +37,20 @@ int ParseArgs(int argc, char *argv[], struct Options *opts);
    флаги, разобранные до ошибки, остаются взведёнными. */
 int ParseFlags(const char *arg, struct Options *opts);
 
+/* Печатает справку по использованию в out. Перечислены только реализованные
+   флаги, поэтому текст не совпадает со справкой GNU cat.
+   Возвращает SUCCESS либо OUTPUT_ERROR, если запись не удалась (диск полон,
+   поток закрыт); в этом случае сообщение уже выведено в stderr. */
+int PrintHelp(FILE *out);
+
 /* Освобождает массив files, обнуляет указатель и file_count.
    Вызывать повторно безопасно. Парная к ParseArgs. */
 void OptionsFree(struct Options *opts);
 
 /* Возвращает stdin для имени "-", иначе открывает файл на чтение.
    При неудаче возвращает NULL, причина — в errno.
+   Каталог считается ошибкой (errno = EISDIR), как у GNU cat: fopen на нём
+   проходит, поэтому без явной проверки он выглядел бы как пустой файл.
    Открытый поток закрывать только через CloseInput. */
 FILE *OpenInput(const char *path_to_file);
 

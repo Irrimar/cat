@@ -66,8 +66,7 @@ $(BUILD)/test_%: $(BUILD)/test_%.o $(LIB_OBJS)
 .SECONDARY: $(TEST_OBJS)
 
 run: all
-	./$(BUILD)/$(TARGET) -n $(TEST_DATA)/single_line.txt 
-	#- $(TEST_DATA)/simple.txt -
+	./$(BUILD)/$(TARGET) -n $(TEST_DATA)/simple.txt $(TEST_DATA)/single_line.txt
 
 # Прогоняются все наборы тестов, даже если какой-то упал; общий итог в конце.
 test: all $(TEST_BINS)
